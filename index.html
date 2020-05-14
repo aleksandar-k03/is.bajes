@@ -1,0 +1,164 @@
+<html>
+
+<head>
+  <title>Domaci 3, IS</title>
+  <meta charset="UTF-8">
+  <link href="https://fonts.googleapis.com/css?family=Roboto&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./main.css">
+  <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+  <script src="./primjeri.js"></script>
+  <script src="./main.js"></script>
+  <script src="./logika.js"></script>
+</head>
+
+<div>
+  Domaci 3 iz IS, Aleksandar Konatar, 32/19p
+</div>
+<div id="promjenaPrimjera">
+  <div id="promjenaPrimjeraLabel">Promjeni primjer:</div>
+  <select id="primjer"></select>
+</div>
+<div id="table"> </div>
+
+<div id="uslovi">
+  <h2>Uslovi:</h2>
+  <table id="uslovitable"></table>
+
+  <div class="result" id="besLaplasa">
+    <div>Bez lapasovog estimatora</div>
+    <div>Vjerovatnoca za DA: <span class="yes1"></span> / <span class="yes2"></span></div>
+    <div>Vjerovatnoca za NE: <span class="no1"></span> / <span class="no2"></span></div>
+  </div>
+
+  <div id="resultKomentar">
+    Bla bla 
+  </div>
+
+  <div class="result" id="saLaplasom">
+    <div>Primjenom Laplace estimatora</div>
+    <div>Vjerovatnoca za DA: <span class="yes1"></span> / <span class="yes2"></span></div>
+    <div>Vjerovatnoca za NE: <span class="no1"></span> / <span class="no2"></span></div>
+  </div>
+
+</div>
+
+
+<script>
+  var main = null;
+  var data = {};
+
+
+  $(document).ready(function () {
+    main = new Main();
+    main.ucitavanjePrimjera();    
+  });
+
+
+  function onSelect(){
+    data = {};
+    console.warn('Primjer: ' + $('#primjer').val());
+    data.modeliTabele = main.kreirajModele();
+    data.atributi = [];
+
+    console.log('Kreirani modeliTabele iz tabele: ', data.modeliTabele);
+
+    // filtiramo rezultate
+    data.rezultati = [];
+    for(var i = 0; i < data.modeliTabele.modeli.length; i++){
+      var r = data.modeliTabele.modeli[i][data.modeliTabele.modeli[i].length - 1];
+      data.rezultati.push(r);
+    }
+    console.log('data.Rezultati: ', data.rezultati);
+
+
+    // filtiramo modele iz tabale i kreiramo atribute
+    data.root = null;
+    data.rez = new Rezultati(data.rezultati);
+    for (var i = 0; i < data.modeliTabele.atributi.length - 1; i++) {
+      var podaciAtributa = [];
+
+      for (var k = 0; k < data.modeliTabele.modeli.length; k++)
+        podaciAtributa.push(data.modeliTabele.modeli[k][i]);
+
+      var noviAtribut = new Atribut(data.modeliTabele.atributi[i], podaciAtributa, data.rezultati);
+
+      data.atributi.push(noviAtribut);
+    }
+
+    main.kreiranjeTabeleOdlucivanja();
+    console.log('Kreirani atributi: ', data.atributi);
+  }
+
+  /*
+    OVDJE RACUNAMO
+  */
+
+  // poziva se kada se promjeni atribut
+  function promjenaAtributa(){
+    // objekat za rezultate
+    var rezultFunc = function(){
+      this.yes = 1; 
+      this.no = 1;
+      this.yesProc = function(){ return this.yes / (this.yes + this.no) * 100; },
+      this.noProc = function(){ return this.no / (this.no + this.yes) * 100; },
+      this.finish = function(){ 
+          this.yes *= data.rez.procYes;
+          this.no *= data.rez.procNo
+      }
+    }
+
+    var result = {
+      komentar: '',
+      showLaplace: false,
+      bezLaplace: new rezultFunc(),
+      saLaplace: new rezultFunc()
+    }
+
+    $('.selectAtribut').each(function(){
+      var atribut = getAtributByName($(this).attr('at'));
+      var podatak = atribut.getPodatak($(this).val());
+
+      // bez laplasa
+      result.bezLaplace.yes *= podatak.procYes;
+      result.bezLaplace.no *= podatak.procNo;
+
+      // sa laplasom
+      var laplas = atribut.primjeniLaplas();
+      podatak = laplas.getPodatak($(this).val());
+      //console.log('laplac', laplas, podatak);
+
+      result.saLaplace.yes *= podatak.procYes;
+      result.saLaplace.no *= podatak.procNo;
+    });
+
+    result.bezLaplace.finish();
+    result.saLaplace.finish();
+
+    if(result.bezLaplace.yes == 0 || result.bezLaplace.no == 0){
+      result.showLaplace = true;
+      result.komentar = 'Moramo primjeniti Laplace estimator';
+    }
+    else{
+      result.komentar = 'Ne moramo primjeniti laplace estimator';
+    }
+
+    console.log('result', result);
+
+
+    $('#besLaplasa').find('.yes1').text(result.bezLaplace.yes.toFixed(6)); $('#besLaplasa').find('.yes2').text(result.bezLaplace.yesProc().toFixed(2) + '%');
+    $('#besLaplasa').find('.no1').text(result.bezLaplace.no.toFixed(6)); $('#besLaplasa').find('.no2').text(result.bezLaplace.noProc().toFixed(2) + '%');
+    $('#resultKomentar').text(result.komentar);
+    
+    $('#saLaplasom').find('.yes1').text(result.saLaplace.yes.toFixed(6)); $('#saLaplasom').find('.yes2').text(result.saLaplace.yesProc().toFixed(2) + '%');
+    $('#saLaplasom').find('.no1').text(result.saLaplace.no.toFixed(6)); $('#saLaplasom').find('.no2').text(result.saLaplace.noProc().toFixed(2) + '%');
+
+    if(result.showLaplace)
+      $('#saLaplasom').css('opacity', '1');
+    else
+      $('#saLaplasom').css('opacity', '.4');
+
+  }
+
+</script>
+
+</html>
