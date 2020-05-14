@@ -29,14 +29,14 @@ function Main(){
       {
         // imena atributa
         $(this).find('td').each(function(){
-          atributi.push($(this).text());
+          atributi.push($(this).text().trim());
         });
         return;
       }
 
       var red = [];
       $(this).find('td').each(function(){
-        red.push($(this).text());
+        red.push($(this).text().trim());
       });
       modeli.push(red);
 
